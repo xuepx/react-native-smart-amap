@@ -70,9 +70,9 @@ public class RCTAMapView extends FrameLayout implements LocationSource, AMapLoca
     private ThemedReactContext CONTEXT;
     private ViewGroup.LayoutParams PARAM;
     private boolean hasLocationMarker = false;
-    private boolean zoomControls = false;
+    private boolean zoomControls = true;
     private boolean zoomGestures = true;
-    private boolean scaleControls = false;
+    private boolean scaleControls = true;
     private boolean compassEnable = false;
     private boolean onceLocation = true;
     private ImageView CenterView;
