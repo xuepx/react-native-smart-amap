@@ -5,20 +5,69 @@
  * Copyright (c) 2016 react-native-component <moonsunfall@aliyun.com>
  */
 
-import {
-    Platform,
-} from 'react-native'
+import React, {Component} from 'react'
+import PropTypes from 'prop-types';
+import {View, requireNativeComponent, NativeModules, findNodeHandle, Platform} from 'react-native'
 
-import AndroidAMap from './AMap-android'
-import IOSAMap from './AMap-ios'
+const AMapManager = Platform.OS == 'ios'
+    ? NativeModules.AMap
+    : null
 
-let AMap
+export default class AMap extends Component {
 
-if(Platform.OS == 'ios') {
-    AMap = IOSAMap
+    static constants = {
+        userTrackingMode: Platform.OS == 'ios'
+            ? AMapManager.userTrackingMode
+            : null, //only for ios
+    }
+
+    static defaultProps = {
+        mapType: 0,
+        showTraffic: false,
+        showsUserLocation: true
+    }
+
+    static propTypes = {
+        ...View.propTypes,
+        options: PropTypes.shape({
+            frame: PropTypes.shape({width: PropTypes.number.isRequired, height: PropTypes.number.isRequired}),
+            mapType: PropTypes.number,
+            showTraffic: PropTypes.bool,
+            showsUserLocation: PropTypes.bool,
+            userTrackingMode: PropTypes.number,
+            centerCoordinate: PropTypes.shape({latitude: PropTypes.number.isRequired, longitude: PropTypes.number.isRequired}),
+            zoomLevel: PropTypes.number,
+            centerMarker: PropTypes.string
+        }).isRequired,
+        onDidMoveByUser: PropTypes.func
+    }
+
+    constructor(props) {
+        super(props)
+        this.state = {}
+    }
+
+    render() {
+        return (<NativeAMap {...this.props}/>)
+    }
+
+    setOptions(options) {
+        AMapManager.setOptions(findNodeHandle(this), options)
+    }
+
+    addMarker(options) {
+        AMapManager.addMarker(findNodeHandle(this), options)
+    }
+
+    searchPoiByCenterCoordinate(params) {
+        AMapManager.searchPoiByCenterCoordinate(params)
+    }
+
+    setCenterCoordinate(coordinate) {
+        AMapManager.setCenterCoordinate(findNodeHandle(this), coordinate)
+    }
 }
-else {
-    AMap = AndroidAMap
-}
 
-export default AMap
+const NativeAMap = Platform.OS == 'ios'
+    ? requireNativeComponent('RCTAMap', AMap)
+    : View
