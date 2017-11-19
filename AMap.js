@@ -37,26 +37,49 @@ export default class AMap extends Component {
             userTrackingMode: PropTypes.number,
             centerCoordinate: PropTypes.shape({latitude: PropTypes.number.isRequired, longitude: PropTypes.number.isRequired}),
             zoomLevel: PropTypes.number,
-            centerMarker: PropTypes.string
+            centerMarker: PropTypes.string,
+            markerImage: PropTypes.string
         }).isRequired,
-        onDidMoveByUser: PropTypes.func
+        onDidMoveByUser: PropTypes.func,
+        onSelectMarker: PropTypes.func,
+        onDeselectMarker: PropTypes.func
     }
 
     constructor(props) {
         super(props)
         this.state = {}
     }
+    
+    _onDidMoveByUser(event) {
+        if(this.props.onDidMoveByUser==undefined)return;
+        this.props.onDidMoveByUser(event.nativeEvent);
+    }
+    
+    _onSelectMarker(event) {
+        if(this.props.onSelectMarker==undefined)return;
+        this.props.onSelectMarker(event.nativeEvent);
+    }
+    
+    _onDeselectMarker(){
+        if(this.props.onDeselectMarker==undefined)return;
+        this.props.onDeselectMarker();
+    }
 
     render() {
-        return (<NativeAMap {...this.props}/>)
+        return (
+            <NativeAMap {...this.props} 
+                onDidMoveByUser={this._onDidMoveByUser.bind(this)}
+                onSelectMarker={this._onSelectMarker.bind(this)}
+                onDeselectMarker={this._onDeselectMarker.bind(this)}
+            />)
     }
 
     setOptions(options) {
         AMapManager.setOptions(findNodeHandle(this), options)
     }
 
-    addMarker(options) {
-        AMapManager.addMarker(findNodeHandle(this), options)
+    addMarker(marker) {
+        AMapManager.addMarker(findNodeHandle(this), marker)
     }
 
     searchPoiByCenterCoordinate(params) {

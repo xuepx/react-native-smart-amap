@@ -1,8 +1,3 @@
-
-
-//#define SCREENHEIGHT [UIScreen mainScreen].bounds.size.height
-//#define SCREENWIDTH [UIScreen mainScreen].bounds.size.width
-
 #import "RCTAMapManager.h"
 #import "RCTAMap.h"
 #import <React/RCTUIManager.h>
@@ -36,7 +31,10 @@ RCT_EXPORT_MODULE(RCTAMap)
     return mapView;
 }
 
+
 RCT_EXPORT_VIEW_PROPERTY(onDidMoveByUser, RCTBubblingEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onSelectMarker, RCTBubblingEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onDeselectMarker, RCTBubblingEventBlock)
 
 RCT_CUSTOM_VIEW_PROPERTY(options, NSDictionary, RCTAMap) {
     NSDictionary *options = [RCTConvert NSDictionary:json];
@@ -56,7 +54,7 @@ RCT_CUSTOM_VIEW_PROPERTY(options, NSDictionary, RCTAMap) {
         CGFloat height = [[frame objectForKey:@"height"] floatValue];
         view.frame = CGRectMake(view.frame.origin.x, view.frame.origin.y, width, height);
     }
-
+    
     //地图类型，0为标准，1为卫星，默认为标准
     if([keys containsObject:@"mapType"]) {
         int mapType = [[options objectForKey:@"mapType"] intValue];
@@ -72,7 +70,7 @@ RCT_CUSTOM_VIEW_PROPERTY(options, NSDictionary, RCTAMap) {
     //是否显示用户位置，默认显示
     if([keys containsObject:@"showsUserLocation"]) {
         BOOL showsUserLocation = [[options objectForKey:@"showsUserLocation"] boolValue];
-        view.showsUserLocation = NO;// showsUserLocation;
+        view.showsUserLocation = showsUserLocation;
     }
     
     //设置追踪用户位置更新的模式，默认不追踪
@@ -87,31 +85,29 @@ RCT_CUSTOM_VIEW_PROPERTY(options, NSDictionary, RCTAMap) {
         [view setZoomLevel:zoomLevel animated:NO];
     }
     
+    //指定标记点的图片
+    if([keys containsObject:@"markerImage"]) {
+        view.markerImage = [options objectForKey:@"markerImage"];
+        NSLog(@"view.markerImage");
+        NSLog(view.markerImage);
+    }
+    
     //根据经纬度指定地图的中心点，并根据情况创建定位标记
     if([keys containsObject:@"centerCoordinate"]) {
         NSDictionary *centerCoordinate = [options objectForKey:@"centerCoordinate"];
         CGFloat latitude = [[centerCoordinate objectForKey:@"latitude"] floatValue];
         CGFloat longitude = [[centerCoordinate objectForKey:@"longitude"] floatValue];
-        
-        //NSLog(@"latitude = %f, longitude = %f, ", latitude, longitude);
-        
-        //view.centerCoordinate = CLLocationCoordinate2DMake(latitude, longitude);
         [view setCenterCoordinate:CLLocationCoordinate2DMake(latitude, longitude) animated:YES];
-        //    [view setZoomLevel:15 animated:true];
-        
         if(!view.hasUserLocationPointAnnotaiton) {
-            //NSLog(@"draw userLocation annoation...");
             view.hasUserLocationPointAnnotaiton = YES;
             MAPointAnnotation *pointAnnotation = [[MAPointAnnotation alloc] init];
             [pointAnnotation setCoordinate:view.centerCoordinate];
-            // pointAnnotation.coordinate = CLLocationCoordinate2DMake(39.989631, 116.481018);
             pointAnnotation.lockedToScreen = YES;
             CGPoint screenPoint = [view convertCoordinate:view.centerCoordinate toPointToView:view];
             
             if([keys containsObject:@"centerMarker"]) {
                 view.centerMarker = [options objectForKey:@"centerMarker"];
                 UIImage *image = [UIImage imageNamed:view.centerMarker];
-                NSLog(@"screenPoint.x = %f, screenPoint.y = %f", screenPoint.x, screenPoint.y);
                 pointAnnotation.lockedScreenPoint = CGPointMake(screenPoint.x, screenPoint.y - image.size.height / 2);
                 [view addAnnotation:pointAnnotation];
             }
@@ -131,116 +127,43 @@ RCT_EXPORT_METHOD(setOptions:(nonnull NSNumber *)reactTag :(nonnull NSDictionary
     
 }
 
-RCT_EXPORT_METHOD(addMarker:(nonnull NSNumber *)reactTag :(nonnull NSDictionary *)options)
+RCT_EXPORT_METHOD(addMarker:(nonnull NSNumber *)reactTag :(nonnull NSDictionary *)marker)
 {
     dispatch_async(self.bridge.uiManager.methodQueue,^{
         [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
             id view = viewRegistry[reactTag];
             RCTAMap *mapView = (RCTAMap *)view;
-            [self addMapViewMarker:mapView :options];
+            [self addMapViewMarker:mapView :marker];
         }];
-    });   
+    });
 }
 
--(void)addMapViewMarker:(RCTAMap *)view :(nonnull NSDictionary *)options
+-(void)addMapViewMarker:(RCTAMap *)view :(nonnull NSDictionary *)marker
 {
-    NSArray *keys = [options allKeys];
+    NSArray *keys = [marker allKeys];
     MAPointAnnotation *pointAnnotation = [[MAPointAnnotation alloc] init];
-    pointAnnotation.coordinate = CLLocationCoordinate2DMake(34.37, 108.93);
     pointAnnotation.title = @"";
     pointAnnotation.subtitle = @"";
-
+    
     if([keys containsObject:@"latitude"] && [keys containsObject:@"longitude"]) {
         pointAnnotation.coordinate = CLLocationCoordinate2DMake(
-            [[options objectForKey:@"latitude"] floatValue],
-            [[options objectForKey:@"longitude"] floatValue]
+            [[marker objectForKey:@"latitude"] floatValue],
+            [[marker objectForKey:@"longitude"] floatValue]
         );
+    }else{
+        return;
     }
-
+    
     if([keys containsObject:@"title"]){
-        pointAnnotation.title = [options objectForKey:@"title"];
+        pointAnnotation.title = [marker objectForKey:@"title"];
     }
-
+    
     if([keys containsObject:@"subtitle"]){
-        pointAnnotation.subtitle = [options objectForKey:@"subtitle"];
+        pointAnnotation.subtitle = [marker objectForKey:@"subtitle"];
     }
-    //NSLog(@"latitude = %f, longitude = %f, ", [[options objectForKey:@"latitude"] floatValue], [[options objectForKey:@"longitude"] floatValue]);
-
+    
     [view addAnnotation:pointAnnotation];
 }
-
-
-
-////地图宽高设置
-//RCT_CUSTOM_VIEW_PROPERTY(frame, NSDictionary, RCTAMap) {
-//    NSDictionary *frame = [RCTConvert NSDictionary:json];
-//    CGFloat width = [[frame objectForKey:@"width"] floatValue];
-//    CGFloat height = [[frame objectForKey:@"height"] floatValue];
-//    view.frame = CGRectMake(view.frame.origin.x, view.frame.origin.y, width, height);
-//}
-//
-////地图类型，0为标准，1为卫星，默认为标准
-//RCT_CUSTOM_VIEW_PROPERTY(mapType, NSNumber, RCTAMap) {
-//    NSNumber *mapType = [RCTConvert NSNumber:json];
-//    view.mapType = [mapType intValue];
-//}
-//
-////是否显示路况，默认不显示
-//RCT_CUSTOM_VIEW_PROPERTY(showTraffic, BOOL, RCTAMap) {
-//    BOOL showTraffic = [RCTConvert BOOL:json];
-//    view.showTraffic = showTraffic;
-//}
-//
-//
-////是否显示用户位置，默认显示
-//RCT_CUSTOM_VIEW_PROPERTY(showsUserLocation, BOOL, RCTAMap) {
-//    BOOL showsUserLocation = [RCTConvert BOOL:json];
-////    view.showsUserLocation = showsUserLocation;
-//}
-//
-////设置追踪用户位置更新的模式
-//RCT_CUSTOM_VIEW_PROPERTY(userTrackingMode, BOOL, RCTAMap) {
-//    int userTrackingMode = [RCTConvert int:json];
-//    NSLog(@"userTrackingMode = %d", userTrackingMode);
-//    [view setUserTrackingMode:userTrackingMode animated:true];
-//}
-//
-////根据经纬度指定地图的中心点
-//RCT_CUSTOM_VIEW_PROPERTY(centerCoordinate, NSDictionary, RCTAMap) {
-//    NSDictionary *centerCoordinate = [RCTConvert NSDictionary:json];
-//    NSString *latitude = [centerCoordinate objectForKey:@"latitude"];
-//    NSString *longitude = [centerCoordinate objectForKey:@"longitude"];
-//    //    NSLog(@"latitude = %@, longitude = %@", latitude, longitude);
-//    [view setCenterCoordinate:CLLocationCoordinate2DMake([latitude floatValue], [longitude floatValue]) animated:YES];
-////    [view setZoomLevel:15 animated:true];
-//
-//    if(!view.hasUserLocationPointAnnotaiton) {
-//        NSLog(@"draw userLocation annoation...");
-//        
-//        view.hasUserLocationPointAnnotaiton = YES;
-//        MAPointAnnotation *pointAnnotaiton = [[MAPointAnnotation alloc] init];
-//        [pointAnnotaiton setCoordinate:view.centerCoordinate];
-//        pointAnnotaiton.lockedToScreen = YES;
-//        CGPoint screenPoint = [view convertCoordinate:view.centerCoordinate toPointToView:view];
-//        
-//        UIImage *image = [UIImage imageNamed:@"icon_location.png"];
-//        
-//        NSLog(@"screenPoint.x = %f, screenPoint.y = %f", screenPoint.x, screenPoint.y);
-//        
-//        pointAnnotaiton.lockedScreenPoint = CGPointMake(screenPoint.x, screenPoint.y - image.size.height / 2);
-//        
-//        //screenPoint.x = 183.129769, screenPoint.y = 126.198228
-//        
-//        [view addAnnotation:pointAnnotaiton];
-//    }
-//}
-//
-////指定缩放级别
-//RCT_CUSTOM_VIEW_PROPERTY(zoomLevel, int, RCTAMap) {
-//    int zoomLevel = [RCTConvert int:json];
-//    [view setZoomLevel:zoomLevel animated:true];
-//}
-
 
 //定位当前用户位置，并自动显示在地图中心
 RCT_EXPORT_METHOD(setCenterCoordinate:(nonnull NSNumber *)reactTag centerCoordinate:(nonnull NSDictionary *)coordinate)
@@ -254,26 +177,9 @@ RCT_EXPORT_METHOD(setCenterCoordinate:(nonnull NSNumber *)reactTag centerCoordin
             [mapView setCenterCoordinate:CLLocationCoordinate2DMake(latitude, longitude) animated:YES];
         }];
     });
-
+    
 }
 
-//RCT_EXPORT_METHOD(onDestroyBDMap:(nonnull NSNumber *)reactTag){
-//    dispatch_async(self.bridge.uiManager.methodQueue,^{
-//        [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
-//            for(int i=0;i<self.tempArray.count;i++){
-//                [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(waveFun:) object:[self.tempArray objectAtIndex:i]];
-//            }
-//            id view = viewRegistry[reactTag];
-//            self.geoSearcher.delegate = nil;
-//            self.sugestionSearch.delegate = self;
-//            BMKMapView *bk = (BMKMapView *)view;
-//            [bk removeOverlays:bk.overlays];
-//            [bk removeAnnotations:bk.annotations];
-//            bk.delegate = nil;
-//            bk = nil;
-//        }];
-//    });
-//}
 
 /* 根据中心点坐标来搜周边的POI. */
 RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
@@ -283,7 +189,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
     if(params != nil) {
         NSArray *keys = [params allKeys];
         
-//        NSLog(@"searchPoiByCenterCoordinate...");
+        //        NSLog(@"searchPoiByCenterCoordinate...");
         
         if([keys containsObject:@"types"]) {
             NSString *types = [params objectForKey:@"types"];
@@ -310,7 +216,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
             request.requireSubPOIs = requireSubPOIs;
         }
         
-
+        
         if([keys containsObject:@"keywords"]) {
             NSString *keywords = [params objectForKey:@"keywords"];
             request.keywords = keywords;
@@ -321,11 +227,11 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
             double longitude = [[coordinate objectForKey:@"longitude"] doubleValue];
             request.location = [AMapGeoPoint locationWithLatitude:latitude longitude:longitude];
         }
-//        if([keys containsObject:@"latitude"] && [keys containsObject:@"longitude"]) {
-//            double latitude = [[params objectForKey:@"latitude"] doubleValue];
-//            double longitude = [[params objectForKey:@"longitude"] doubleValue];
-//            request.location = [AMapGeoPoint locationWithLatitude:latitude longitude:longitude];
-//        }
+        //        if([keys containsObject:@"latitude"] && [keys containsObject:@"longitude"]) {
+        //            double latitude = [[params objectForKey:@"latitude"] doubleValue];
+        //            double longitude = [[params objectForKey:@"longitude"] doubleValue];
+        //            request.location = [AMapGeoPoint locationWithLatitude:latitude longitude:longitude];
+        //        }
         if([keys containsObject:@"radius"]) {
             int *radius = [[params objectForKey:@"radius"] intValue];
             request.radius = radius;
@@ -350,24 +256,24 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 
 #pragma mark - Map Delegate
 
-///*!
-// @brief 地图区域即将改变时会调用此接口
-// @param mapview 地图View
-// @param animated 是否动画
-// */
-//- (void)mapView:(RCTAMap *)mapView regionWillChangeAnimated:(BOOL)animated {
-//    
-//}
-//
-///*!
-// @brief 地图区域改变完成后会调用此接口
-// @param mapview 地图View
-// @param animated 是否动画
-// */
-//- (void)mapView:(RCTAMap *)mapView regionDidChangeAnimated:(BOOL)animated {
-//    
-//}
-//
+/*!
+ @brief 地图区域即将改变时会调用此接口
+ @param mapview 地图View
+ @param animated 是否动画
+ */
+- (void)mapView:(RCTAMap *)mapView regionWillChangeAnimated:(BOOL)animated {
+    NSLog(@"regionWillChangeAnimated");
+}
+
+/*!
+ @brief 地图区域改变完成后会调用此接口
+ @param mapview 地图View
+ @param animated 是否动画
+ */
+- (void)mapView:(RCTAMap *)mapView regionDidChangeAnimated:(BOOL)animated {
+    NSLog(@"regionDidChangeAnimated");
+}
+
 ///**
 // *  地图将要发生移动时调用此接口
 // *
@@ -375,7 +281,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // *  @param wasUserAction 标识是否是用户动作
 // */
 //- (void)mapView:(RCTAMap *)mapView mapWillMoveByUser:(BOOL)wasUserAction {
-//    
+//
 //}
 //
 /**
@@ -386,16 +292,16 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
  */
 - (void)mapView:(RCTAMap *)mapView mapDidMoveByUser:(BOOL)wasUserAction
 {
-    if(mapView.onDidMoveByUser) {
-        mapView.onDidMoveByUser(@{
-                                  @"data": @{
-                                          @"centerCoordinate": @{
-                                                  @"latitude": @(mapView.centerCoordinate.latitude),
-                                                  @"longitude": @(mapView.centerCoordinate.longitude),
-                                                  }
-                                          },
-                                  });
-    }
+    if(!mapView.onDidMoveByUser)return;
+    if(!wasUserAction)return;
+    
+    NSLog(@"mapDidMoveByUser");
+    mapView.onDidMoveByUser(@{
+                              @"centerCoordinate": @{
+                                      @"latitude": @(mapView.centerCoordinate.latitude),
+                                      @"longitude": @(mapView.centerCoordinate.longitude),
+                                      }
+                              });
 }
 //
 ///**
@@ -405,7 +311,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // *  @param wasUserAction 标识是否是用户动作
 // */
 //- (void)mapView:(RCTAMap *)mapView mapWillZoomByUser:(BOOL)wasUserAction {
-//    
+//
 //}
 //
 ///**
@@ -415,7 +321,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // *  @param wasUserAction 标识是否是用户动作
 // */
 //- (void)mapView:(RCTAMap *)mapView mapDidZoomByUser:(BOOL)wasUserAction {
-//    
+//
 //}
 //
 ///**
@@ -425,7 +331,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // *  @param coordinate 点击位置经纬度
 // */
 //- (void)mapView:(RCTAMap *)mapView didSingleTappedAtCoordinate:(CLLocationCoordinate2D)coordinate {
-//    
+//
 //}
 //
 ///**
@@ -435,7 +341,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // *  @param coordinate 长按位置经纬度
 // */
 //- (void)mapView:(RCTAMap *)mapView didLongPressedAtCoordinate:(CLLocationCoordinate2D)coordinate {
-//    
+//
 //}
 
 /*!
@@ -445,11 +351,10 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
  @return 生成的标注View
  */
 - (MAAnnotationView*)mapView:(RCTAMap *)mapView viewForAnnotation:(id <MAAnnotation>)annotation {
-    //NSLog(@"viewForAnnotation...");
+    if(annotation.title.length == 0) return nil;
     if ([annotation isKindOfClass:[MAPointAnnotation class]])
     {
         static NSString *pointReuseIndetifier = @"pointReuseIndetifier";
-        
         MAPinAnnotationView *annotationView = (MAPinAnnotationView *)[mapView dequeueReusableAnnotationViewWithIdentifier:pointReuseIndetifier];
         if (annotationView == nil)
         {
@@ -457,10 +362,10 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
         }
         
         annotationView.canShowCallout= YES;       //设置气泡可以弹出，默认为NO
-        annotationView.animatesDrop = YES;        //设置标注动画显示，默认为NO
-        annotationView.draggable = YES;        //设置标注可以拖动，默认为NO
-        annotationView.image = [UIImage imageNamed:@"custom"];
-//        annotationView.pinColor = MAPinAnnotationColorPurple;
+        annotationView.animatesDrop = NO;        //设置标注动画显示，默认为NO
+        annotationView.draggable = NO;        //设置标注可以拖动，默认为NO
+        annotationView.image = [UIImage imageNamed:mapView.markerImage];
+        //annotationView.pinColor = MAPinAnnotationColorPurple;
         
         return annotationView;
     }
@@ -474,49 +379,53 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
  @param views 新添加的annotation views
  */
 - (void)mapView:(RCTAMap *)mapView didAddAnnotationViews:(NSArray *)views {
-    
-   MAAnnotationView *view = views[0];
+    MAAnnotationView *view = views[0];
     NSLog(@"Add Annotation...");
-   // 放到该方法中用以保证userlocation的annotationView已经添加到地图上了。
-   if ([view.annotation isKindOfClass:[MAUserLocation class]])
-   {
-       
-       NSLog(@"Add Annotation2...");
-       MAUserLocationRepresentation *pre = [[MAUserLocationRepresentation alloc] init];
-       pre.fillColor = [UIColor colorWithRed:0.9 green:0.1 blue:0.1 alpha:0.3];
-       pre.strokeColor = [UIColor colorWithRed:0.1 green:0.1 blue:0.9 alpha:1.0];
-       pre.image = [UIImage imageNamed:@"userPosition"];
-       pre.lineWidth = 3;
-       //        pre.lineDashPattern = @[@6, @3];
-       pre.showsAccuracyRing = YES;
-       pre.showsHeadingIndicator = YES;
-       
-       
-       [mapView updateUserLocationRepresentation:pre];
-       
-       view.calloutOffset = CGPointMake(0, 0);
-       view.canShowCallout = YES;
-   }  
-
+    // 放到该方法中用以保证userlocation的annotationView已经添加到地图上了。
+    if ([view.annotation isKindOfClass:[MAUserLocation class]])
+    {
+        NSLog(@"Add Annotation2...");
+        MAUserLocationRepresentation *pre = [[MAUserLocationRepresentation alloc] init];
+        pre.image = [UIImage imageNamed:@"userPosition"];
+        pre.showsAccuracyRing = YES;
+        pre.showsHeadingIndicator = YES;
+        
+        [mapView updateUserLocationRepresentation:pre];
+        
+        view.calloutOffset = CGPointMake(0, 0);
+        view.canShowCallout = YES;
+    }
+    
 }
 
-///*!
-// @brief 当选中一个annotation views时调用此接口
-// @param mapView 地图View
-// @param views 选中的annotation views
-// */
-//- (void)mapView:(RCTAMap *)mapView didSelectAnnotationView:(MAAnnotationView *)view {
-//    
-//}
-//
-///*!
-// @brief 当取消选中一个annotation views时调用此接口
-// @param mapView 地图View
-// @param views 取消选中的annotation views
-// */
-//- (void)mapView:(RCTAMap *)mapView didDeselectAnnotationView:(MAAnnotationView *)view {
-//    
-//}
+/*!
+ @brief 当选中一个annotation views时调用此接口
+ @param mapView 地图View
+ @param views 选中的annotation views
+ */
+- (void)mapView:(RCTAMap *)mapView didSelectAnnotationView:(MAAnnotationView *)view {
+    if(!mapView.onSelectMarker)return;
+    if ([view.annotation isKindOfClass:[MAPointAnnotation class]])
+    {
+        mapView.onSelectMarker(@{
+                                 @"title": view.annotation.title,
+                                 @"subtitle": view.annotation.subtitle,
+                                 @"latitude": @(view.annotation.coordinate.latitude),
+                                 @"longitude": @(view.annotation.coordinate.longitude)
+                                 });
+    }
+}
+
+/*!
+ @brief 当取消选中一个annotation views时调用此接口
+ @param mapView 地图View
+ @param views 取消选中的annotation views
+ */
+- (void)mapView:(RCTAMap *)mapView didDeselectAnnotationView:(MAAnnotationView *)view {
+    NSLog(@"didDeselectAnnotationView");
+    if(!mapView.onDeselectMarker)return;
+    mapView.onDeselectMarker(nil);
+}
 //
 ///*!
 // @brief 标注view的accessory view(必须继承自UIControl)被点击时调用此接口
@@ -525,7 +434,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // @param control 对应的control
 // */
 //- (void)mapView:(RCTAMap *)mapView annotationView:(MAAnnotationView *)view calloutAccessoryControlTapped:(UIControl *)control {
-//    
+//
 //}
 //
 ///**
@@ -535,7 +444,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // *  @param view calloutView所属的annotationView
 // */
 //- (void)mapView:(RCTAMap *)mapView didAnnotationViewCalloutTapped:(MAAnnotationView *)view {
-//    
+//
 //}
 //
 ///*!
@@ -543,7 +452,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // @param mapView 地图View
 // */
 //- (void)mapViewWillStartLocatingUser:(RCTAMap *)mapView {
-//    
+//
 //}
 //
 ///*!
@@ -551,7 +460,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // @param mapView 地图View
 // */
 //- (void)mapViewDidStopLocatingUser:(RCTAMap *)mapView {
-//    
+//
 //}
 
 /*!
@@ -562,7 +471,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
  */
 - (void)mapView:(RCTAMap *)mapView didUpdateUserLocation:(MAUserLocation *)userLocation updatingLocation:(BOOL)updatingLocation {
     if(!mapView.hasUserLocationPointAnnotaiton && userLocation.location) {
-//        NSLog(@"draw userLocation annoation...");
+        //        NSLog(@"draw userLocation annoation...");
         mapView.hasUserLocationPointAnnotaiton = YES;
         MAPointAnnotation *pointAnnotaiton = [[MAPointAnnotation alloc] init];
         [pointAnnotaiton setCoordinate:userLocation.location.coordinate];
@@ -571,13 +480,13 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
         
         UIImage *image = [UIImage imageNamed:mapView.centerMarker];
         
-//        NSLog(@"screenPoint.x = %f, screenPoint.y = %f", screenPoint.x, screenPoint.y);
+        //        NSLog(@"screenPoint.x = %f, screenPoint.y = %f", screenPoint.x, screenPoint.y);
         
         CGFloat x = mapView.frame.origin.x;
         CGFloat y = mapView.frame.origin.y;
         CGFloat width = mapView.frame.size.width;
         CGFloat height = mapView.frame.size.height;
-//        NSLog(@"x=%f,y=%f,width=%f,height=%f", x, y, width, height);
+        //        NSLog(@"x=%f,y=%f,width=%f,height=%f", x, y, width, height);
         
         pointAnnotaiton.lockedScreenPoint = CGPointMake(x + width / 2, y + height / 2 - image.size.height / 2);
         
@@ -585,13 +494,13 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
         
         [mapView addAnnotation:pointAnnotaiton];
         
-//        NSLog(@"searchPoiByCenterCoordinate...");
-//        NSDictionary *searchParams = @{
-//                                       @"keywords": @"商务住宅|学校",
-//                                       @"latitude": @(userLocation.location.coordinate.latitude),
-//                                       @"longitude": @(userLocation.location.coordinate.longitude)
-//                                       };
-//        [self searchPoiByCenterCoordinate:searchParams];
+        //        NSLog(@"searchPoiByCenterCoordinate...");
+        //        NSDictionary *searchParams = @{
+        //                                       @"keywords": @"商务住宅|学校",
+        //                                       @"latitude": @(userLocation.location.coordinate.latitude),
+        //                                       @"longitude": @(userLocation.location.coordinate.longitude)
+        //                                       };
+        //        [self searchPoiByCenterCoordinate:searchParams];
     }
 }
 
@@ -601,7 +510,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // @param error 错误号，参考CLError.h中定义的错误号
 // */
 //- (void)mapView:(RCTAMap *)mapView didFailToLocateUserWithError:(NSError *)error {
-//    
+//
 //}
 //
 ///*!
@@ -611,7 +520,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // @param animated 动画
 // */
 //- (void)mapView:(RCTAMap *)mapView didChangeUserTrackingMode:(MAUserTrackingMode)mode animated:(BOOL)animated {
-//    
+//
 //}
 //
 ///*!
@@ -622,7 +531,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // @param oldState 旧状态
 // */
 //- (void)mapView:(RCTAMap *)mapView annotationView:(MAAnnotationView *)view didChangeDragState:(MAAnnotationViewDragState)newState fromOldState:(MAAnnotationViewDragState)oldState {
-//    
+//
 //}
 //
 ///*!
@@ -641,23 +550,23 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 // @param renderers 新添加的overlay renderers
 // */
 //- (void)mapView:(RCTAMap *)mapView didAddOverlayRenderers:(NSArray *)renderers {
-//    
+//
 //}
 
 #pragma mark - AMapSearchDelegate
 /* 搜索失败回调. */
 - (void)AMapSearchRequest:(id)request didFailWithError:(NSError *)error
 {
-//    NSLog(@"Error: %@", error);
+    //    NSLog(@"Error: %@", error);
     NSDictionary *result;
     result = @{
                @"error": @{
-                            @"code": @(error.code),
-                            @"localizedDescription": error.localizedDescription
-                          }
+                       @"code": @(error.code),
+                       @"localizedDescription": error.localizedDescription
+                       }
                };
-//    [self.bridge.eventDispatcher sendAppEventWithName:@"amap.onPOISearchFailed"
-//                                                 body:result];
+    //    [self.bridge.eventDispatcher sendAppEventWithName:@"amap.onPOISearchFailed"
+    //                                                 body:result];
     [self.bridge.eventDispatcher sendAppEventWithName:@"amap.onPOISearchDone"
                                                  body:result];
 }
@@ -665,7 +574,7 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
 /* POI 搜索回调. */
 - (void)onPOISearchDone:(AMapPOISearchBaseRequest *)request response:(AMapPOISearchResponse *)response
 {
-//    NSLog(@"ios onPOISearchDone...");
+    //    NSLog(@"ios onPOISearchDone...");
     
     NSDictionary *result;
     NSMutableArray *resultList;
@@ -689,8 +598,8 @@ RCT_EXPORT_METHOD(searchPoiByCenterCoordinate:(NSDictionary *)params)
         }];
     }
     result = @{
-                 @"searchResultList": resultList
-                 };
+               @"searchResultList": resultList
+               };
     [self.bridge.eventDispatcher sendAppEventWithName:@"amap.onPOISearchDone"
                                                  body:result];
 }

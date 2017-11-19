@@ -8,7 +8,13 @@
 
 @property (nonatomic, copy) RCTBubblingEventBlock onDidMoveByUser;
 
+@property (nonatomic, copy) RCTBubblingEventBlock onDeselectMarker;
+
+@property (nonatomic, copy) RCTBubblingEventBlock onSelectMarker;
+
 @property (nonatomic, copy) NSString *centerMarker;
+
+@property (nonatomic, copy) NSString *markerImage;
 
 - (id)initWithManager: (RCTAMapManager*)manager;
 

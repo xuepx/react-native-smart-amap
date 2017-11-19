@@ -213,6 +213,11 @@ export default class App extends Component {
   constructor(props) {
     super(props);
     this._amap = null;
+    this.state = {
+      showDetail: false,
+      detail:''
+    };
+    this._timer = null;
   }
 
   componentDidMount() {
@@ -221,40 +226,75 @@ export default class App extends Component {
       .addMarker({
         latitude: 34.37, 
         longitude: 108.93, 
-        title: 'test',
-        subtitle:"你好"
+        title: '西安工业大学附属小学',
       })
+    this
+      ._amap
+      .addMarker({
+        latitude: 34.37, 
+        longitude: 108.83, 
+        title: '西安工业大学附属中学',
+      })
+  }
+
+  showDetail= (e)=>{
+    clearTimeout(this._timer);
+    this.setState({
+      showDetail: true,
+      detail: e.title
+    });
+  }
+
+  hideDetail=()=>{
+    this._timer = setTimeout(()=>{
+      this.setState({
+        showDetail: false
+      });
+    }, 200)
   }
 
   render() {
     return (
       <View style={styles.container}>
         <AMap
+          onSelectMarker={(e)=>this.showDetail(e)}
+          onDidMoveByUser={(e)=>{console.log(e)}}
+          onDeselectMarker={(e)=>{this.hideDetail()}}
           ref={component => this._amap = component}
           style={styles.amap}
           options={{
-          frame: {
-            width: deviceWidth,
-            height: deviceHeight
-          },
-          centerCoordinate: {
-            latitude: 34.27,
-            longitude: 108.93
-          },
-          userTrackingMode: AMap.constants.userTrackingMode.follow,
-          mapType: 0,
-          showsUserLocation: false,
-          zoomLevel: 10,
-          onDidMoveByUser: (e)=>{
-            console.warn(e)
-          }
+            markerImage:'clicnic',
+            frame: {
+              width: deviceWidth,
+              height: deviceHeight
+            },
+            centerCoordinate: {
+              latitude: 34.27,
+              longitude: 108.93
+            },
+            userTrackingMode: AMap.constants.userTrackingMode.follow,
+            mapType: 0,
+            showsUserLocation: false,
+            zoomLevel: 10
         }}></AMap>
+        <Text style={this.state.showDetail?styles.detail:styles.hide}>{this.state.detail}</Text>
       </View>
     );
   }
 }
 
 const styles = StyleSheet.create({
+  hide: {
+    height: 0,
+    width: 0
+  },
+  detail: {
+    height: deviceHeight/3,
+    width: deviceWidth,
+    position: 'absolute',
+    bottom: 0,
+    left: 0
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
